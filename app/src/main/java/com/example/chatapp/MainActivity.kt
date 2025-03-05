@@ -1,5 +1,6 @@
 package com.example.chatapp
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -8,9 +9,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -21,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.chatapp.googleSign.GoogleAuthUiClient
+import com.example.chatapp.screens.ChatUI
 import com.example.chatapp.screens.ChatsScreenUI
 import com.example.chatapp.screens.SignInScreenUI
 import com.example.chatapp.ui.theme.ChatAppTheme
@@ -37,6 +41,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -47,7 +52,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                        //.padding(innerPadding)
                     ) {
 
                         val state by viewModel.state.collectAsState()
@@ -60,6 +65,7 @@ class MainActivity : ComponentActivity() {
                                     if (userData != null) {
                                         viewModel.getUserData(userData.userId)
                                         viewModel.showChats(userData.userId)
+                                        viewModel.popStory(userData.userId)
                                         navController.navigate(ChatsScreen)
                                     } else {
                                         navController.navigate(SignInScreen)
@@ -88,6 +94,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel.adduserToFireStore(userData)
                                         viewModel.getUserData(userData.userId)
                                         viewModel.showChats(userData.userId)
+                                        viewModel.popStory(userData.userId)
                                         navController.navigate(ChatsScreen)
                                     }
                                 }
@@ -107,7 +114,46 @@ class MainActivity : ComponentActivity() {
                             }
 
                             composable<ChatsScreen> {
-                                ChatsScreenUI(viewModel = viewModel, state = state)
+
+                                ChatsScreenUI(
+                                    viewModel = viewModel,
+                                    state = state,
+                                    showSingleChat = { usr, id ->
+                                        viewModel.getTp(id)
+                                        viewModel.setChatUser(usr, id)
+                                        navController.navigate(ChatScreen)
+                                    }
+                                )
+                            }
+
+                            composable<ChatScreen>(
+                                enterTransition = {
+                                    slideInHorizontally(
+                                        initialOffsetX = {
+                                            fullWidth -> fullWidth
+                                        },
+                                        animationSpec = tween(200)
+                                    )
+                                },
+                                exitTransition = {
+                                    slideOutHorizontally(
+                                        targetOffsetX = {
+                                            fullWidth -> fullWidth
+                                        },
+                                        animationSpec = tween(200)
+                                    )
+                                }
+                            ) {
+
+                                ChatUI(
+                                    viewModel = viewModel,
+                                    navController = navController,
+                                    messages = viewModel.messages,
+                                    userData = state.User2!!,
+                                    chatId = state.chatId,
+                                    state = state,
+                                    onBack = {}
+                                )
                             }
                         }
                     }

@@ -34,12 +34,12 @@ fun SignInScreenUI(
 ) {
     val brush = Brush.linearGradient(
         listOf(
-            Color(0xFF238CDD),
-            Color(0xFF255DCC)
+            Color.White,
+            Color.Gray
         )
     )
     Image(
-        painter = painterResource(id = R.drawable.login_blur),
+        painter = painterResource(id = R.drawable.back),
         contentDescription = null,
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Crop
@@ -51,13 +51,13 @@ fun SignInScreenUI(
         Image(
             painter = painterResource(id = R.drawable.image),
             contentDescription = null,
-            modifier = Modifier.size(400.dp)
+            modifier = Modifier.size(450.dp).padding(25.dp)
         )
         Text(
             text = "Universe of Conversations",
             style = MaterialTheme.typography.displayMedium.copy(
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF101010),
+                color = Color.White,
                 fontSize = 30.sp
             )
         )
@@ -65,7 +65,7 @@ fun SignInScreenUI(
             text = "Chat, laugh and connect with new friends. Dive into a fun world where conversations flow and friendships grow!",
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
-            color = Color(0xFF101010),
+            color = Color.White,
             modifier = Modifier.padding(15.dp)
         )
         Spacer(modifier = Modifier.height(70.dp))
@@ -80,7 +80,7 @@ fun SignInScreenUI(
             Text(
                 text = "Launch your journey with Google",
                 modifier = Modifier.padding(end = 4.dp),
-                color = Color.White,
+                color = Color.Black,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold
             )

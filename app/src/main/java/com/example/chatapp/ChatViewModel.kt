@@ -1,19 +1,29 @@
 package com.example.chatapp
 
 import android.content.ContentValues
+import android.icu.util.Calendar
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.toObject
+import com.google.firebase.firestore.toObjects
+import com.google.firebase.storage.storage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class ChatViewModel : ViewModel() {
 
@@ -23,6 +33,13 @@ class ChatViewModel : ViewModel() {
     var userDataListener: ListenerRegistration? = null
     var chatListener: ListenerRegistration? = null
     var chats by mutableStateOf<List<ChatData>>(emptyList())
+    var tp by mutableStateOf(ChatData())
+    var tpListener: ListenerRegistration? = null
+    var reply by mutableStateOf("")
+    var msgListener: ListenerRegistration? = null
+    var messages by mutableStateOf<List<Message>>(listOf())
+    var storyListener: ListenerRegistration? = null
+    var stories by mutableStateOf<List<Story>>(emptyList())
 
     fun resetState() {
 
@@ -152,6 +169,133 @@ class ChatViewModel : ViewModel() {
                 }.sortedBy {
                     it.last?.time
                 }.reversed()
+            }
+        }
+    }
+
+    fun getTp(chatId: String) {
+        tpListener?.remove()
+        tpListener = Firebase.firestore.collection(CHAT_COLLECTION).document(chatId)
+            .addSnapshotListener { snp, err ->
+                if (snp != null) {
+                    tp = snp.toObject(ChatData::class.java)!!
+                }
+            }
+    }
+
+    fun setChatUser(usr: ChatUserData, id: String) {
+        _state.update {
+            it.copy(User2 = usr, chatId = id)
+        }
+    }
+
+    fun sendReply(
+        chatId: String,
+        replyMessage: Message = Message(),
+        msg: String,
+        senderId: String = state.value.userData?.userId.toString(),
+    ) {
+        val id = Firebase.firestore.collection(CHAT_COLLECTION).document()
+            .collection(MESSAGES_COLLECTION).document().id
+
+        val time = Calendar.getInstance().time
+        val message = Message(
+            msgId = id,
+            repliedMessage = replyMessage,
+            senderId = senderId,
+            content = msg,
+            time = Timestamp(date = time)
+        )
+        Firebase.firestore.collection(CHAT_COLLECTION).document(chatId)
+            .collection(MESSAGES_COLLECTION).document(id).set(message)
+        Firebase.firestore.collection(CHAT_COLLECTION).document(chatId).update("last", message)
+    }
+
+    fun popMessage(chatId: String) {
+        msgListener?.remove()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                if (chatId != "") {
+                    msgListener = Firebase.firestore.collection(CHAT_COLLECTION).document(chatId)
+                        .collection(MESSAGES_COLLECTION).addSnapshotListener { value, error ->
+                            if (value != null) {
+                                messages = value.documents.mapNotNull {
+                                    it.toObject(Message::class.java)
+                                }.sortedBy {
+                                    it.time
+                                }.reversed()
+                            }
+                            Log.d("TAG1", "popMessage: $messages")
+                        }
+                }
+            }
+        }
+    }
+
+    fun uploadImage(img: Uri, callBack: (String) -> Unit) {
+        var storageRef = Firebase.storage.reference
+        val imageRef = storageRef.child("$IMAGE_COLLECTION/${System.currentTimeMillis()}")
+        imageRef.putFile(img).addOnSuccessListener {
+            imageRef.downloadUrl.addOnSuccessListener {
+                val url = it.toString()
+                callBack(url)
+            }.addOnFailureListener {
+                callBack("")
+            }
+        }.addOnFailureListener {
+            callBack("")
+        }.addOnCompleteListener {
+
+        }
+    }
+
+    fun uploadStory(url: String, storyId: String) {
+        val image = Image(
+            imgUrl = url,
+            time = Timestamp(Calendar.getInstance().time)
+        )
+        if(storyId.isNotBlank()){
+            Firebase.firestore.collection(STORIES_COLLECTION).document(storyId).update("images", FieldValue.arrayUnion(image))
+        }else{
+            val id = Firebase.firestore.collection(STORIES_COLLECTION).document().id
+            val story = Story(
+                id = id,
+                userId = state.value.userData?.userId.toString(),
+                userName = state.value.userData?.username,
+                ppUrl = state.value.userData?.ppurl.toString(),
+                images = listOf(image)
+            )
+            Firebase.firestore.collection(STORIES_COLLECTION).document(id).set(story)
+        }
+    }
+
+    fun popStory(currentUserId: String) {
+        viewModelScope.launch {
+            val storyCollection = Firebase.firestore.collection(STORIES_COLLECTION)
+            val users = arrayListOf(state.value.userData?.userId)
+            Firebase.firestore.collection(CHAT_COLLECTION).where(
+                Filter.or(
+                    Filter.equalTo("user1.userId", currentUserId),
+                    Filter.equalTo("user2.userId", currentUserId)
+                )
+            ).addSnapshotListener { snp, err ->
+                if (snp != null) {
+                    snp.toObjects<ChatData>().forEach {
+                        val otherUserId = if (it.user1?.userId != currentUserId) {
+                            it.user2?.userId.toString()
+                        } else it.user1.userId.toString()
+                        users.add(otherUserId)
+                    }
+                    users.add(currentUserId)
+                    storyListener = storyCollection.whereIn("userId", users)
+                        .addSnapshotListener { storySnapShot, storyError ->
+                            if (storySnapShot != null) {
+                                stories = storySnapShot.documents.mapNotNull {
+                                    it.toObject<Story>()
+                                }
+                            }
+                        }
+                }
             }
         }
     }

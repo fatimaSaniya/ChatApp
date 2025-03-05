@@ -20,7 +20,9 @@ data class AppState(
     val userData: UserData?= null,
     val signInError: String? = null,
     val srEmail: String = "",
-    val showDialog: Boolean = false
+    val showDialog: Boolean = false,
+    val User2: ChatUserData?= null,
+    val chatId: String = "",
 )
 
 data class ChatData(
@@ -63,4 +65,17 @@ data class ChatUserData(
     val email: String= "",
     val status: Boolean= false,
     val unread: Int= 0
+)
+
+data class Image(
+    val imgUrl: String= "",
+    var time: Timestamp?= Timestamp.now()
+)
+
+data class Story(
+    val id : String= "",
+    val userId: String= "",
+    val userName: String?= "",
+    val ppUrl : String= "",
+    val images: List<Image> = emptyList()
 )

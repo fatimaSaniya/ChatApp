@@ -9,3 +9,6 @@ object SignInScreen
 
 @Serializable
 object ChatsScreen
+
+@Serializable
+object ChatScreen
